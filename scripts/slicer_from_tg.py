@@ -260,18 +260,20 @@ def slice_textgrid(tg, slis):
     return tg_out
 #%%
 parser = argparse.ArgumentParser()
-parser.add_argument("-iw", "--wav_folder", type=str,
-                    help="specify path of data folder")
-parser.add_argument("-il", "--label_folder", type=int, default=5000,
-                    help="specify batch size when uploading data")
+parser.add_argument("-iw", "--wav_folder", type=str, required=True,
+                    help="input folder containing wav files")
+parser.add_argument("-il", "--label_folder", type=str, required=True,
+                    help="input folder containing label files")
 parser.add_argument("-e", "--label_ext", choices=['lab', 'TextGrid'], default='lab',
-                    help="specify batch size when uploading data")
-parser.add_argument("-o", "--out_folder", action='store_true',
-                    help="overwrite previously written parquet files")
-parser.add_argument("-br", "--br_symbol", action='store_true',
-                    help="overwrite previously written parquet files")
-parser.add_argument("-sil", "--sil_symbol", action='store_true',
-                    help="overwrite previously written parquet files")
+                    help="label format")
+parser.add_argument("-o", "--out_folder", type=str, required=True,
+                    help="output folder")
+parser.add_argument("-br", "--br_symbol", type=str, default='br',
+                    help="token for breath mark")
+parser.add_argument("-sil", "--sil_symbol", type=str, default='sil',
+                    help="token for silence mark")
+parser.add_argument("-sr", "--sampling_rate", type=int, default=44100,
+                    help="sampling rate")
 args = parser.parse_args()
 
 label_path = Path(args.label_folder)
@@ -306,14 +308,14 @@ for wav_fn in tqdm(natsorted(wav_path.glob('*.wav'))):
                 if ph1[1][1] != ph2[1][0]:
                     raise Exception("Time mismatch")
 
-    wav, _ = librosa.load(wav_fn, sr=44100, mono=True)
+    wav, _ = librosa.load(wav_fn, sr=args.sampling_rate, mono=True)
     znum = len(str(len(final_slices)))
     for num, slis in enumerate(final_slices):
         intvs_list.append((wav_fn, [(sli[0][1][0], sli[-1][1][1]) for sli in slis]))
-        wav_slice = slice_wav(wav, 44100, slis)
+        wav_slice = slice_wav(wav, args.sampling_rate, slis)
         tg_slice = slice_textgrid(tg, slis)
         cmds.extend(slice_wav_command(wav_fn, wav_out_dir / f'{fn_stem}_{str(num).zfill(znum)}.wav', slis))
-        sf.write(wav_out_dir / f'{fn_stem}_{str(num).zfill(znum)}.wav', wav_slice, 44100, subtype='PCM_24')
+        sf.write(wav_out_dir / f'{fn_stem}_{str(num).zfill(znum)}.wav', wav_slice, args.sampling_rate, subtype='PCM_24')
         tg_slice.write(tg_out_dir / f'{fn_stem}_{str(num).zfill(znum)}.TextGrid')
 
 #%%
